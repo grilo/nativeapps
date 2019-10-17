@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>NativeApps Test Repository</title>
+        <meta http-equiv="x-ua-compatible" content="IE=edge" charset="UTF-8"/>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <script src="static/js/jquery-3.3.1.min.js"></script>
+        <script src="static/js/popper-1.14.7.min.js"></script>
+        <script src="static/js/bootstrap-4.3.1.min.js"></script>
+        <link rel="shortcut icon" href="static/img/phone.ico"/>
+        <link rel="stylesheet" href="static/css/bootstrap-4.3.1.min.css" type="text/css"/>
+
+        <script>
+            $(document).ready(function(){
+                $('input#uploadfile').on('change', function() {
+                    var fileName = $(this).val(); //get the file name
+                    //replace the "Choose a file" label
+                    $(this).next('.custom-file-label').html(fileName);
+
+                    var formData = new FormData();
+                    formData.append('file', $(this)[0].files[0]);
+                    xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/application')
+                    console.log($(this)[0].files[0]);
+                    xhr.onload = function() {
+                        if (xhr.status != 201) {
+                            alert("Error uploading.");
+                        } else {
+                            alert("Upload successful!");
+                            $(this).val('');
+                        }
+                    };
+                    xhr.send(formData);
+                });
+
+                $('button#deleteapp').on('click', function(event) {
+                    event.preventDefault();
+                    var type = $('input#deletetype').val().toLowerCase();
+                    var name = $('input#deletename').val();
+                    var version = $('input#deleteversion').val();
+                    var application = name + "-" + version + "." + type;
+
+                    console.log(application);
+                    xhr = new XMLHttpRequest();
+                    xhr.open('DELETE', '/application/' + application);
+                    console.log("Something should happen.");
+                    xhr.onload = function() {
+                        if (xhr.status != 200) {
+                            alert("Unable to delete, check params.");
+                        } else {
+                            alert("Deleted!");
+                        }
+                    };
+                    xhr.send();
+                });
+            });
+
+        </script>
+    </head>
+
+    <!--<body class="bg-dark">-->
+    <body>
+
+        <div class="container">
+
+            <div class="row">
+                <div class="col-2"></div>
+                <div class="col-auto">
+                    <h1>NativeApps: Mobile application testing</h1>
+                </div>
+                <div class="col-2"></div>
+            </div><!-- /row -->
+
+
+            <nav class="nav nav-pills flex-column flex-sm-row">
+                <ul class="nav nav-pills flex-sm-fill">
+                    <li class="nav-item flex-sm-fill text-sm-center">
+                        <a class="nav-link active" data-toggle="pill"
+                            href="#android">Android</a>
+                    </li>
+                    <li class="nav-item flex-sm-fill text-sm-center">
+                        <a class="nav-link" data-toggle="pill"
+                            href="#ios">iOS</a>
+                    </li>
+                    <li class="nav-item flex-sm-fill text-sm-center">
+                        <a class="nav-link" data-toggle="pill"
+                            href="#help">Help</a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="android">
+
+                    <table class="table table-responsive-lg">
+                        <thead>
+                            <tr>
+                                <th scope="col">Download</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Version</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{ android_applications }}
+                        </tbody>
+                    </table>
+
+                </div>
+                <div class="tab-pane fade" id="ios">
+
+                    <table class="table table-responsive-lg">
+                        <thead>
+                            <tr>
+                                <th scope="col">Download</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Version</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{ ios_applications }}
+                        </tbody>
+                    </table>
+
+                </div>
+                <div class="tab-pane fade" id="help">
+
+                    <div class="card mx-10">
+                        <div class="card-header">Upload</div>
+                        <div class="card-body">
+                            <form class="form justify-content-center" id="uploadapp" action="/application" method="PUT" enctype="multipart/form-data">
+                                <div class="input-group">
+                                    <div class="custom-file">
+                                        <input type="file" class="custom-file-input" id="uploadfile"/>
+                                        <label class="custom-file-label" for="uploadfile">.ipa or .apk</label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card mx-10">
+                        <div class="card-header">Delete</div>
+                        <div class="card-body">
+
+                            <form>
+                              <div class="form-row align-items-center">
+
+                                <div class="col-auto">
+                                  <div class="input-group">
+                                    <div class="input-group-prepend">
+                                      <div class="input-group-text">Type</div>
+                                    </div>
+                                    <input type="text" class="form-control" id="deletetype" placeholder="APK or IPA">
+                                  </div>
+                                </div>
+
+                                <div class="col-auto">
+                                  <div class="input-group">
+                                    <div class="input-group-prepend">
+                                      <div class="input-group-text">Name</div>
+                                    </div>
+                                    <input type="text" class="form-control" id="deletename" placeholder="(name without version)">
+                                  </div>
+                                </div>
+
+                                <div class="col-auto">
+                                  <div class="input-group">
+                                    <div class="input-group-prepend">
+                                      <div class="input-group-text">Version</div>
+                                    </div>
+                                    <input type="text" class="form-control" id="deleteversion" placeholder="(version only without name)">
+                                  </div>
+                                </div>
+
+                                <div class="col-auto">
+                                  <button id="deleteapp" type="submit" class="btn btn-danger">Delete</button>
+                                </div>
+
+                              </div>
+                            </form>
+
+                        </div>
+                    </div>
+
+                </div> <!-- tab-pane -->
+            </div>
+
+        </div> <!-- /container -->
+
+
+    </body>
+</html>

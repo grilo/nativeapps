@@ -1,0 +1,12 @@
+# Compat with python 2.6
+pytest-runner
+# Compat with python 2.6
+py==1.4.*
+# Compat with python 2.6
+pytest==3.1.*
+# Compat with python 2.6
+pytest-mock==1.6.3
+pytest-cov
+pylint
+six>=1.10.0
+flask
