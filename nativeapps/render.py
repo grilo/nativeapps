@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import logging
+"""
+    Very basic templating mechanics.
+
+    This is used to render the application lists in each of the tabs.
+"""
+
 import os
 import json
 
 
-tpl = """
+TEMPLATE = """
      <tr>
         <th scope="row">
             <a href="%s">
@@ -32,6 +37,12 @@ tpl = """
 """ # link, icon, name, version, metadata, sequence_id, sequence_id, metadata
 
 def handle_list(sequence):
+    """
+        Given an iterator:
+            ["hello", "world"]
+        Generate:
+            <p>hello</p><p>world</p>
+    """
     string = ""
     for value in sequence:
         if isinstance(value, dict):
@@ -57,7 +68,7 @@ def handle_dict(dictionary):
     """
 
     for key, value in dictionary.items():
-        if isinstance(value, list) and len(value) > 0:
+        if isinstance(value, list) and value:
             value = handle_list(value)
         elif isinstance(value, dict):
             value = handle_dict(value)
@@ -71,7 +82,10 @@ def handle_dict(dictionary):
     return string
 
 def listfiles(rootdir, terminator):
-    for root, dirs, files in os.walk(rootdir):
+    """
+        List all the files in <rootdir> which end in <terminator>.
+    """
+    for root, _, files in os.walk(rootdir):
         for filename in files:
             path = os.path.join(root, filename)
             name = filename.split("-", 1)[0]
@@ -80,17 +94,29 @@ def listfiles(rootdir, terminator):
                 yield path, name, version
 
 def android(url, rootdir):
+    """
+        Render the HTML for APKs.
+    """
     template = ""
     i = 0
     for path, name, version in listfiles(rootdir, ".apk"):
         directory = os.path.dirname(path)
         meta = json.load(open(os.path.join(directory, "metadata.json"), "rb+"))
-        template += tpl % (path.replace(rootdir, url), "android",
-                           name, i, version, i, handle_dict(meta))
+
+        app_url = path.decode("utf-8").replace(rootdir, url).encode("utf-8")
+        template += TEMPLATE % (app_url, "android",
+                                name, i, version, i, handle_dict(meta))
         i += 1
     return template
 
 def ios(url, rootdir):
+    """
+        Render the HTML for IPAs.
+
+        The two differences from android are:
+            * We have to extract the name/version with a slightly different logic
+            * The application's link is this weird itms-services:// thing.
+    """
     template = ""
     i = 0
     url = "itms-services://?action=download-manifest&url=" + url
@@ -101,7 +127,7 @@ def ios(url, rootdir):
 
         name, version = os.path.basename(directory).split("-", 1)
         app_url = path.decode("utf-8").replace(rootdir, url).encode("utf-8")
-        template += tpl % (app_url, "ios",
-                           name, i, version, i, handle_dict(meta))
+        template += TEMPLATE % (app_url, "ios",
+                                name, i, version, i, handle_dict(meta))
         i += 1
     return template

@@ -30,17 +30,21 @@ def index():
         unnecessary communication between client and server.
     """
 
-    rootdir = os.path.join(os.path.dirname(__file__), "storeapps")
+    storeapps = APP.config["storage"]
     html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     html = open(html_path, "r").read()
+
     html = html.replace("{{ android_applications }}",
-                        nativeapps.render.android(request.host_url + "application", rootdir))
+                        nativeapps.render.android(
+                            request.host_url + "application", storeapps))
+
     html = html.replace("{{ ios_applications }}",
-                        nativeapps.render.ios(request.host_url + "application", rootdir))
+                        nativeapps.render.ios(
+                            request.host_url + "application", storeapps))
     return html, 200
 
-@APP.route("/application/IPA/<application>/manifest.plist", methods=["GET"])
-def serve_manifest(application):
+@APP.route("/application/IPA/<app>/manifest.plist", methods=["GET"])
+def serve_manifest(app):
     """
         Quirks of the iOS/IPA platform.
 
@@ -55,13 +59,13 @@ def serve_manifest(application):
         The info can't be set at startup time exclusively since we have to
         account for factors such as reverse proxies.
     """
-    rootdir = os.path.join(os.path.dirname(__file__), "storeapps")
-    manifest = os.path.join(rootdir, "IPA", application, "manifest.plist")
-    application_url = request.host_url + "application/IPA/" + application + "/" + application + ".ipa"
+    storeapps = APP.config["storage"]
+    manifest = os.path.join(storeapps, "IPA", app, "manifest.plist")
+    app_url = request.host_url + "application/IPA/" + app + "/" + app + ".ipa"
     if not os.path.isfile(manifest):
         return "File not found", 404
-    logging.debug("Serving manifest with application url: %s", application_url)
-    return open(manifest).read().replace("{{ APPLICATION_URL }}", application_url)
+    logging.debug("Serving manifest with application url: %s", app_url)
+    return open(manifest).read().replace("{{ APPLICATION_URL }}", app_url)
 
 @APP.route("/application/<path:filename>", methods=["GET"])
 def serve_application(filename):
@@ -81,7 +85,7 @@ def upload():
 
         We also allow POST to add support for HTML forms.
     """
-    rootdir = os.path.join(os.path.dirname(__file__), "storeapps")
+    storeapps = APP.config["storage"]
     binary = request.data
 
     # Add compatibility with POST requests
@@ -92,10 +96,10 @@ def upload():
 
     try:
         app = nativeapps.application.from_binary(binary)
-        filepath = app.write(rootdir)
+        filepath = app.write(storeapps)
         return "written: " + filepath, 201 # 201 CREATED
-    except nativeapps.application.InvalidApplicationError as e:
-        return e, 400
+    except nativeapps.application.InvalidApplicationError as exception:
+        return exception, 400
 
 @APP.route("/application/<path:filename>", methods=["DELETE"])
 def delete(filename):
@@ -108,10 +112,10 @@ def delete(filename):
         would actually work (and delete the android APK). Not the most correct
         behavior, but simplifies logic alot.
     """
-    rootdir = os.path.join(os.path.dirname(__file__), "storeapps")
+    storeapps = APP.config["storage"]
     extension = os.path.basename(filename).split(".")[-1].upper()
     dirname = ".".join(os.path.basename(filename).split(".")[:-1])
-    directory = os.path.join(rootdir, extension, dirname)
+    directory = os.path.join(storeapps, extension, dirname)
 
     if os.path.isdir(directory):
         shutil.rmtree(directory)
@@ -122,7 +126,7 @@ def delete(filename):
     return "File not found: %s" % (filename), 404
 
 
-def run(host, port, threaded, debug): # pragma: no cover
+def run(host, port, threaded, debug, storage): # pragma: no cover
     """
         Launch the werkzeug application.
     """
@@ -137,4 +141,5 @@ def run(host, port, threaded, debug): # pragma: no cover
     else:
         logging.getLogger().setLevel(logging.INFO)
 
+    APP.config["storage"] = storage
     APP.run(host, port, threaded)

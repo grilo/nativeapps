@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+    The applications supported by our web service.
+
+    The application contstructors accept a binary stream.
+    They will then inspect the contets and extract all the
+    relevant information, including what the application's
+    name on the filesystem should be.
+"""
+
 import logging
 import os
 import json
@@ -8,7 +17,6 @@ import hashlib
 import zipfile
 import plistlib
 import datetime
-import time
 import distutils.spawn
 import tempfile
 import subprocess
@@ -33,17 +41,12 @@ class ChecksumError(Exception):
 
 
 class Base(object):
+    """
+        Base implementation containing common methods and required interfaces.
+    """
 
     def validate(self):
-        """Ideally, we would validate that the APP file is valid by checking:
-            * Expiration date of the certificat used to sign it.
-            * Expiration date of the provisioning profile itself.
-            * It must be a development application.
-            * Has at least one UDID (device) in the list.
-
-            Note: Some of these conditions do not apply to enterprise/wildcard apps.
-            Note2: Some of these conditions will vary depending on the platform.
-        """
+        """Check that the application is valid."""
         raise NotImplementedError
 
     @property
@@ -58,15 +61,18 @@ class Base(object):
         """
             The raw binary data of the application (e.g. the IPA file).
         """
-        return self.contents
+        return self.contents # pylint: disable=no-member
 
     @property
     def filename(self):
         """
             The name of the file on disk.
         """
-        return self.name + "-" + self.version + "-" + self.buildnumber + \
-                "." + self.__class__.__name__.lower()
+        return "{name}-{version}-{buildnumber}.{ext}".format(
+            name=self.name, # pylint: disable=no-member
+            version=self.version, # pylint: disable=no-member
+            buildnumber=self.buildnumber, # pylint: disable=no-member
+            ext=self.__class__.__name__.lower())
 
     def write(self, rootdir):
         """
@@ -100,7 +106,7 @@ class Base(object):
         # Validate that the written contents are exact,
         # prune them otherwise.
         if checksum_contents != ondisk_contents:
-            os.unlink(path)
+            os.unlink(path_app)
             raise ChecksumError
 
         with open(os.path.join(directory, "metadata.json"), "wb+") as metadatafd:
@@ -110,6 +116,12 @@ class Base(object):
 
 
 class IPA(Base):
+    """
+        The representation of an IPA file.
+
+        Parsing IPA files is a mess, but the Android situation isn't that
+        great either.
+    """
 
     def __init__(self, contents):
         super(IPA, self).__init__()
@@ -132,37 +144,50 @@ class IPA(Base):
                 stop_tag = '</plist>'
                 start_index = contents.index(start_tag)
                 stop_index = contents.index(stop_tag,
-                                                  start_index + len(start_tag)) + len(stop_tag)
+                                            start_index + len(start_tag)) + len(stop_tag)
                 plist_data = contents[start_index:stop_index]
                 self.pprofile = plistlib.readPlistFromString(plist_data)
 
             if self.infoplist and self.pprofile:
                 break
 
+    def validate(self):
+        """Ideally, we would validate that the APP file is valid by checking:
+            * Expiration date of the certificat used to sign it.
+            * Expiration date of the provisioning profile itself.
+            * It must be a development application.
+            * Has at least one UDID (device) in the list.
+
+            Note: Some of these conditions do not apply to enterprise/wildcard apps.
+        """
         if not self.infoplist or not self.pprofile:
-            raise InvalidApplicationError
+            return False
+        return True
 
 
-    def _decode_cert(self, binary_data):
+    @staticmethod
+    def _decode_cert(binary_data):
         cert = {
             "expiration": None,
             "uid": None,
             "cn": None,
         }
         if not distutils.spawn.find_executable("openssl"):
-            logging.debug("Unable to find 'openssl' executable in PATH, cert info will be incomplete.")
+            logging.debug("No 'openssl' bin in PATH, cert info will be incomplete.")
             return cert
 
         with tempfile.NamedTemporaryFile() as temp:
             temp.write(binary_data)
             temp.flush()
             cmd = 'openssl x509 -inform der -text -in %s' % (temp.name)
-            out = subprocess.check_output(shlex.split(cmd)).decode("unicode_escape").encode("latin1")
+            raw_out = subprocess.check_output(shlex.split(cmd))
+            out = raw_out.decode("unicode_escape").encode("latin1")
 
         for line in out.splitlines():
             if "Not After : " in line:
-                date = line.split(":", 1)[-1].lstrip()
-                cert["expiration"] = datetime.datetime.strptime(date, '%b %d %H:%M:%S %Y %Z').isoformat()
+                cert_date = line.split(":", 1)[-1].lstrip()
+                cert["expiration"] = datetime.datetime.strptime(cert_date,
+                                                                '%b %d %H:%M:%S %Y %Z').isoformat()
             elif "Subject: UID" in line:
                 attrs = {}
                 curr = ""
@@ -185,7 +210,7 @@ class IPA(Base):
             if key == "DeveloperCertificates":
                 certs = []
                 for cert in value:
-                    certs.append(self._decode_cert(cert.data))
+                    certs.append(IPA._decode_cert(cert.data))
                 value = certs
             if isinstance(value, datetime.datetime):
                 value = value.isoformat()
@@ -203,18 +228,29 @@ class IPA(Base):
 
     @property
     def name(self):
-        # AKA bundle-identifier
+        """
+            AKA bundle-identifier
+        """
         return self.infoplist["CFBundleName"].encode("utf-8")
 
     @property
     def version(self):
+        """
+            This is the version shown in the appstore.
+        """
         return self.infoplist["CFBundleShortVersionString"]
 
     @property
     def buildnumber(self):
+        """
+            This version is what should be bumped when developing.
+        """
         return self.infoplist["CFBundleVersion"]
 
     def generate_manifest(self):
+        """
+            The manifest file, key for the download to work.
+        """
         return """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -253,7 +289,7 @@ class IPA(Base):
                self.infoplist["CFBundleShortVersionString"],
                self.infoplist["CFBundleName"])
 
-    def write(self, path):
+    def write(self, rootdir):
         """
             We overload the 'write' method so we can add the manifest.plist
 
@@ -264,8 +300,8 @@ class IPA(Base):
             server itself to dynamically change this string when serving
             the file.
         """
-        fullpath = super(IPA, self).write(path)
-        directory = os.path.dirname(fullpath)
+        app_path = super(IPA, self).write(rootdir)
+        directory = os.path.dirname(app_path)
         manifest = os.path.join(directory, "manifest.plist")
         manifest_contents = self.generate_manifest().encode("utf-8")
         # Generate and write the manifest file
@@ -275,13 +311,20 @@ class IPA(Base):
 
 
 class APK(Base):
+    """
+        Represent's an APK (Android) application.
+
+        Android has this very weird AXML format which makes it a pain to do
+        certain things (such as extracting the application's resources).
+    """
 
     def __init__(self, contents):
         super(APK, self).__init__()
         self.contents = contents
         self.apk = axmlparserpy.apk.APK(contents, raw=True)
-        if not self.apk.is_valid_apk():
-            raise InvalidApplicationError
+
+    def validate(self):
+        return self.apk.is_valid_apk()
 
     @property
     def metadata(self):
@@ -308,26 +351,39 @@ class APK(Base):
 
     @property
     def name(self):
+        """
+            Application's name.
+        """
         return self.apk.get_package().encode("utf-8")
 
     @property
     def version(self):
+        """
+            Application's version.
+        """
         return self.apk.get_androidversion_name()
 
     @property
     def buildnumber(self):
+        """
+            Application's build number.
+        """
         return self.apk.get_androidversion_code()
 
 
 def from_binary(contents):
-    try:
-        return APK(contents)
-    except InvalidApplicationError:
-        logging.debug("This application is not a valid APK.")
+    """
+        Given a binary stream, look for the best application.
+    """
 
-    try:
-        return IPA(contents)
-    except InvalidApplicationError:
-        logging.debug("This application is not a valid IPA.")
+    app = APK(contents)
+    if app.validate():
+        return app
+    logging.debug("This application is not a valid APK.")
+
+    app = IPA(contents)
+    if app.validate():
+        return app
+    logging.debug("This application is not a valid IPA.")
 
     raise InvalidApplicationError("Unknown application type: must be a valid IPA or APK file.")
