@@ -57,7 +57,7 @@ def handle_dict(dictionary):
         Prints HTML-formatted tables.
     """
     string = """
-        <table class="table table-responsive-lg alert alert-dark">
+        <table class="table table-sm table-responsive alert alert-dark">
         <thead>
             <tr>
                 <th scope="col">Key</th>
