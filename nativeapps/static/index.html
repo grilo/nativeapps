@@ -13,12 +13,12 @@
         <link rel="stylesheet" href="static/css/bootstrap-4.3.1.min.css" type="text/css"/>
 
         <script>
+
             $(document).ready(function(){
                 $('input#uploadfile').on('change', function() {
                     var fileName = $(this).val(); //get the file name
                     //replace the "Choose a file" label
                     $(this).next('.custom-file-label').html(fileName);
-
                     var formData = new FormData();
                     formData.append('file', $(this)[0].files[0]);
                     xhr = new XMLHttpRequest();
@@ -31,8 +31,11 @@
                             alert("Upload successful!");
                             $(this).val('');
                         }
+                        $('#uploadprogress').width("0%");
+                        $('input#uploadfile').val();
                     };
                     xhr.send(formData);
+                    $('#uploadprogress').width("50%");
                 });
 
                 $('button#deleteapp').on('click', function(event) {
@@ -41,7 +44,6 @@
                     var name = $('input#deletename').val();
                     var version = $('input#deleteversion').val();
                     var application = name + "-" + version + "." + type;
-
                     console.log(application);
                     xhr = new XMLHttpRequest();
                     xhr.open('DELETE', '/application/' + application);
@@ -58,9 +60,9 @@
             });
 
         </script>
+
     </head>
 
-    <!--<body class="bg-dark">-->
     <body>
 
         <div class="container">
@@ -72,7 +74,6 @@
                 </div>
                 <div class="col-2"></div>
             </div><!-- /row -->
-
 
             <nav class="nav nav-pills flex-column flex-sm-row">
                 <ul class="nav nav-pills flex-sm-fill">
@@ -92,8 +93,8 @@
             </nav>
 
             <div class="tab-content">
-                <div class="tab-pane fade show active" id="android">
 
+                <div class="tab-pane fade show active" id="android">
                     <table class="table table-responsive-lg">
                         <thead>
                             <tr>
@@ -106,10 +107,9 @@
                             {{ android_applications }}
                         </tbody>
                     </table>
-
                 </div>
-                <div class="tab-pane fade" id="ios">
 
+                <div class="tab-pane fade" id="ios">
                     <table class="table table-responsive-lg">
                         <thead>
                             <tr>
@@ -122,8 +122,8 @@
                             {{ ios_applications }}
                         </tbody>
                     </table>
-
                 </div>
+
                 <div class="tab-pane fade" id="help">
 
                     <div class="card mx-10">
@@ -137,58 +137,63 @@
                                     </div>
                                 </div>
                             </form>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="uploadprogress" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
 
                     <div class="card mx-10">
+
                         <div class="card-header">Delete</div>
                         <div class="card-body">
 
                             <form>
-                              <div class="form-row align-items-center">
+                                <div class="form-row align-items-center">
 
-                                <div class="col-auto">
-                                  <div class="input-group">
-                                    <div class="input-group-prepend">
-                                      <div class="input-group-text">Type</div>
+                                    <div class="col-auto">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                              <div class="input-group-text">Type</div>
+                                            </div>
+                                            <input type="text" class="form-control" id="deletetype" placeholder="APK or IPA">
+                                        </div>
                                     </div>
-                                    <input type="text" class="form-control" id="deletetype" placeholder="APK or IPA">
-                                  </div>
-                                </div>
 
-                                <div class="col-auto">
-                                  <div class="input-group">
-                                    <div class="input-group-prepend">
-                                      <div class="input-group-text">Name</div>
+                                    <div class="col-auto">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <div class="input-group-text">Name</div>
+                                            </div>
+                                            <input type="text" class="form-control" id="deletename" placeholder="(name without version)">
+                                        </div>
                                     </div>
-                                    <input type="text" class="form-control" id="deletename" placeholder="(name without version)">
-                                  </div>
-                                </div>
 
-                                <div class="col-auto">
-                                  <div class="input-group">
-                                    <div class="input-group-prepend">
-                                      <div class="input-group-text">Version</div>
+                                    <div class="col-auto">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <div class="input-group-text">Version</div>
+                                            </div>
+                                            <input type="text" class="form-control" id="deleteversion" placeholder="(version only without name)">
+                                        </div>
                                     </div>
-                                    <input type="text" class="form-control" id="deleteversion" placeholder="(version only without name)">
-                                  </div>
-                                </div>
 
-                                <div class="col-auto">
-                                  <button id="deleteapp" type="submit" class="btn btn-danger">Delete</button>
-                                </div>
+                                    <div class="col-auto">
+                                        <button id="deleteapp" type="submit" class="btn btn-danger">Delete</button>
+                                    </div>
 
-                              </div>
+                                </div><!-- form-row -->
                             </form>
 
                         </div>
+
                     </div>
 
                 </div> <!-- tab-pane -->
-            </div>
 
+            </div>
         </div> <!-- /container -->
 
-
     </body>
+
 </html>

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import logging
 import os
@@ -19,10 +20,7 @@ except ImportError:
     import StringIO
 
 import biplist
-
-# https://github.com/antitree/AxmlParserPY
-import axmlparserpy.apk
-import axmlparserpy.axmlprinter as axmlprinter
+import axmlparserpy.apk # https://github.com/antitree/AxmlParserPY
 
 
 class InvalidApplicationError(Exception):
@@ -87,6 +85,7 @@ class Base(object):
         directory = os.path.join(rootdir,
                                  self.__class__.__name__,
                                  ".".join(self.filename.split(".")[:-1]))
+
         if not os.path.isdir(directory):
             os.makedirs(directory)
 
@@ -105,7 +104,7 @@ class Base(object):
             raise ChecksumError
 
         with open(os.path.join(directory, "metadata.json"), "wb+") as metadatafd:
-            metadatafd.write(self.metadata)
+            metadatafd.write(self.metadata.encode("utf-8"))
 
         return path_app
 
@@ -205,7 +204,7 @@ class IPA(Base):
     @property
     def name(self):
         # AKA bundle-identifier
-        return self.infoplist["CFBundleName"]
+        return self.infoplist["CFBundleName"].encode("utf-8")
 
     @property
     def version(self):
@@ -219,33 +218,37 @@ class IPA(Base):
         return """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>items</key>
-	<array>
-		<dict>
-			<key>assets</key>
-			<array>
-				<dict>
-					<key>kind</key>
-					<string>software-package</string>
-					<key>url</key>
-					<string>{{ APPLICATION_URL }}</string>
-				</dict>
-			</array>
-			<key>metadata</key>
-			<dict>
-				<key>bundle-identifier</key>
-				<string>%s</string>
-				<key>bundle-version</key>
-				<string>%s</string>
-				<key>kind</key>
-				<string>software</string>
-				<key>title</key>
-				<string>%s</string>
-			</dict>
-		</dict>
-	</array>
-</dict>
+    <dict>
+        <key>items</key>
+        <array>
+            <dict>
+
+                <key>assets</key>
+                <array>
+                    <dict>
+                        <key>kind</key>
+                        <string>software-package</string>
+                        <key>url</key>
+                        <string>{{ APPLICATION_URL }}</string>
+                    </dict>
+                </array>
+
+                <key>metadata</key>
+                <dict>
+                    <key>bundle-identifier</key>
+                    <string>%s</string>
+                    <key>bundle-version</key>
+                    <string>%s</string>
+                    <key>kind</key>
+                    <string>software</string>
+                    <key>title</key>
+                    <string>%s</string>
+                </dict>
+
+            </dict>
+
+       </array>
+    </dict>
 </plist>""" % (self.infoplist["CFBundleName"],
                self.infoplist["CFBundleShortVersionString"],
                self.infoplist["CFBundleName"])
@@ -264,7 +267,7 @@ class IPA(Base):
         fullpath = super(IPA, self).write(path)
         directory = os.path.dirname(fullpath)
         manifest = os.path.join(directory, "manifest.plist")
-        manifest_contents = self.generate_manifest()
+        manifest_contents = self.generate_manifest().encode("utf-8")
         # Generate and write the manifest file
         with open(manifest, "wb+") as manifestfd:
             manifestfd.write(manifest_contents)
@@ -286,7 +289,6 @@ class APK(Base):
             "package": self.apk.get_package(),
             "androidversioncode": self.apk.get_androidversion_code(),
             "androidversionname": self.apk.get_androidversion_name(),
-            "files": self.apk.get_files(),
             "activities": self.apk.get_activities(),
             "services": self.apk.get_services(),
             "receivers": self.apk.get_receivers(),
@@ -294,6 +296,7 @@ class APK(Base):
             "minsdkversion": self.apk.get_min_sdk_version(),
             "targetsdkversion": self.apk.get_target_sdk_version(),
             "libraries": self.apk.get_libraries(),
+            "files": self.apk.get_files(),
         }
 
         for encoding in ["utf-8", "latin1", "utf-16"]:
@@ -305,7 +308,7 @@ class APK(Base):
 
     @property
     def name(self):
-        return self.apk.get_package()
+        return self.apk.get_package().encode("utf-8")
 
     @property
     def version(self):
@@ -328,7 +331,3 @@ def from_binary(contents):
         logging.debug("This application is not a valid IPA.")
 
     raise InvalidApplicationError("Unknown application type: must be a valid IPA or APK file.")
-
-
-if __name__ == "__main__":
-    print IPA(open('storeapps/IPA/helloworld-1.0-1.0/helloworld-1.0-1.0.ipa', "rb+").read()).metadata

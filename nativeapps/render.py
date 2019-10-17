@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import logging
 import os
 import json
+
 
 tpl = """
      <tr>
@@ -29,15 +31,22 @@ tpl = """
     </tr>
 """ # link, icon, name, version, metadata, sequence_id, sequence_id, metadata
 
-def dict_to_table(dictionary):
-    """
-        This could use some decent refactoring.
+def handle_list(sequence):
+    string = ""
+    for value in sequence:
+        if isinstance(value, dict):
+            string += handle_dict(value)
+        else:
+            value = str(value)
+            string += "<p>%s</p>\n" % (str(value))
+    return string
 
-        Recursive function which handles pure strings, lists and dicts.
-        Prints them in HTML-formatted tables.
+def handle_dict(dictionary):
     """
-    string = """<table class="table table-responsive-lg alert alert-dark">"""
-    string += """
+        Prints HTML-formatted tables.
+    """
+    string = """
+        <table class="table table-responsive-lg alert alert-dark">
         <thead>
             <tr>
                 <th scope="col">Key</th>
@@ -49,19 +58,15 @@ def dict_to_table(dictionary):
 
     for key, value in dictionary.items():
         if isinstance(value, list) and len(value) > 0:
-            new_values = ""
-            if isinstance(value[0], dict):
-                for d in value:
-                    new_values += dict_to_table(d)
-            else:
-                new_values += "".join(["<p>" + str(v) + "</p>" for v in value])
-            value = new_values
+            value = handle_list(value)
         elif isinstance(value, dict):
-            value = dict_to_table(value)
-        string += "<tr>"
-        string += "<td>" + key + "</td>"
-        string += "<td>" + str(value) + "</td>"
-        string += "</tr>"
+            value = handle_dict(value)
+        elif isinstance(value, int):
+            value = str(value)
+        elif isinstance(value, unicode):
+            value = value.encode("utf-8")
+        string += "<tr><td>{key}</td><td>{value}</td></tr>\n".format(key=key, value=value)
+
     string += "</tbody></table>"
     return string
 
@@ -79,8 +84,9 @@ def android(url, rootdir):
     i = 0
     for path, name, version in listfiles(rootdir, ".apk"):
         directory = os.path.dirname(path)
-        dictionary = json.loads(open(os.path.join(directory, "metadata.json"), "rb+").read())
-        template += tpl % (path.replace(rootdir, url), "android", name, i, version, i, dict_to_table(dictionary))
+        meta = json.load(open(os.path.join(directory, "metadata.json"), "rb+"))
+        template += tpl % (path.replace(rootdir, url), "android",
+                           name, i, version, i, handle_dict(meta))
         i += 1
     return template
 
@@ -91,8 +97,11 @@ def ios(url, rootdir):
 
     for path, name, version in listfiles(rootdir, "manifest.plist"):
         directory = os.path.dirname(path)
-        dictionary = json.loads(open(os.path.join(directory, "metadata.json"), "rb+").read())
+        meta = json.load(open(os.path.join(directory, "metadata.json"), "rb+"))
+
         name, version = os.path.basename(directory).split("-", 1)
-        template += tpl % (path.replace(rootdir, url), "ios", name, i, version, i, dict_to_table(dictionary))
+        app_url = path.decode("utf-8").replace(rootdir, url).encode("utf-8")
+        template += tpl % (app_url, "ios",
+                           name, i, version, i, handle_dict(meta))
         i += 1
     return template
