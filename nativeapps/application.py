@@ -13,14 +13,9 @@
 import logging
 import os
 import json
-import hashlib
 import zipfile
 import plistlib
 import datetime
-import distutils.spawn
-import tempfile
-import subprocess
-import shlex
 import re
 try:
     import cStringIO as StringIO
@@ -33,10 +28,6 @@ import axmlparserpy.apk # https://github.com/antitree/AxmlParserPY
 
 class InvalidApplicationError(Exception):
     """The binary content is invalid for this application type."""
-    pass
-
-class ChecksumError(Exception):
-    """The written file doesn't match the contents."""
     pass
 
 
@@ -64,15 +55,18 @@ class Base(object):
         return self.contents # pylint: disable=no-member
 
     @property
+    def dirname(self):
+        return "{name}-{version}-{buildnumber}".format(
+            name=self.name, # pylint: disable=no-member
+            version=self.version, # pylint: disable=no-member
+            buildnumber=self.buildnumber) # pylint: disable=no-member
+
+    @property
     def filename(self):
         """
             The name of the file on disk.
         """
-        return "{name}-{version}-{buildnumber}.{ext}".format(
-            name=self.name, # pylint: disable=no-member
-            version=self.version, # pylint: disable=no-member
-            buildnumber=self.buildnumber, # pylint: disable=no-member
-            ext=self.__class__.__name__.lower())
+        return ".".join([self.dirname, self.__class__.__name__.lower()])
 
     def write(self, rootdir):
         """
@@ -90,29 +84,9 @@ class Base(object):
         """
         directory = os.path.join(rootdir,
                                  self.__class__.__name__,
-                                 ".".join(self.filename.split(".")[:-1]))
-
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-
-        path_app = os.path.join(directory, self.filename)
-
-        # Get the content's hash
-        checksum_contents = hashlib.sha256(self.raw).hexdigest()
-        with open(path_app, "wb+") as appfd:
-            appfd.write(self.raw)
-        ondisk_contents = hashlib.sha256(open(path_app, "rb+").read()).hexdigest()
-
-        # Validate that the written contents are exact,
-        # prune them otherwise.
-        if checksum_contents != ondisk_contents:
-            os.unlink(path_app)
-            raise ChecksumError
-
-        with open(os.path.join(directory, "metadata.json"), "wb+") as metadatafd:
-            metadatafd.write(self.metadata.encode("utf-8"))
-
-        return path_app
+                                 self.dirname)
+        path = os.path.join(directory, self.filename)
+        return nativeapps.io.writefile(path, self.raw)
 
 
 class IPA(Base):
@@ -172,16 +146,11 @@ class IPA(Base):
             "uid": None,
             "cn": None,
         }
-        if not distutils.spawn.find_executable("openssl"):
-            logging.debug("No 'openssl' bin in PATH, cert info will be incomplete.")
-            return cert
 
-        with tempfile.NamedTemporaryFile() as temp:
-            temp.write(binary_data)
-            temp.flush()
-            cmd = 'openssl x509 -inform der -text -in %s' % (temp.name)
-            raw_out = subprocess.check_output(shlex.split(cmd))
-            out = raw_out.decode("unicode_escape").encode("latin1")
+        out = nativeapps.io.decode_cert(binary_data)
+        if not out:
+            logging.debug("Unable to decode certificate, info will be incomplete.")
+            return cert
 
         for line in out.splitlines():
             if "Not After : " in line:
@@ -204,7 +173,6 @@ class IPA(Base):
 
     @property
     def metadata(self):
-
         meta = {}
         for key, value in self.pprofile.items():
             if key == "DeveloperCertificates":
@@ -247,7 +215,8 @@ class IPA(Base):
         """
         return self.infoplist["CFBundleVersion"]
 
-    def generate_manifest(self):
+    @property
+    def manifest(self):
         """
             The manifest file, key for the download to work.
         """
@@ -302,12 +271,9 @@ class IPA(Base):
         """
         app_path = super(IPA, self).write(rootdir)
         directory = os.path.dirname(app_path)
-        manifest = os.path.join(directory, "manifest.plist")
-        manifest_contents = self.generate_manifest().encode("utf-8")
-        # Generate and write the manifest file
-        with open(manifest, "wb+") as manifestfd:
-            manifestfd.write(manifest_contents)
-        return manifest
+        manifest_path = os.path.join(directory, "manifest.plist")
+        manifest_contents = self.manifest.encode("utf-8")
+        return nativeapps.io.writefile(manifest_path, manifest_contents)
 
 
 class APK(Base):

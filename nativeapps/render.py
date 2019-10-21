@@ -10,6 +10,8 @@
 import os
 import json
 
+import nativeapps.io
+
 
 TEMPLATE = """
      <tr>
@@ -81,28 +83,16 @@ def handle_dict(dictionary):
     string += "</tbody></table>"
     return string
 
-def listfiles(rootdir, terminator):
-    """
-        List all the files in <rootdir> which end in <terminator>.
-    """
-    for root, _, files in os.walk(rootdir):
-        for filename in files:
-            path = os.path.join(root, filename)
-            name = filename.split("-", 1)[0]
-            version = ".".join(filename.split("-", 1)[-1].split(".")[:-1])
-            if path.endswith(terminator):
-                yield path, name, version
-
 def android(url, rootdir):
     """
         Render the HTML for APKs.
     """
     template = ""
     i = 0
-    for path, name, version in listfiles(rootdir, ".apk"):
+    for path in nativeapps.io.ls(rootdir, r".*\.apk$"):
         directory = os.path.dirname(path)
-        meta = json.load(open(os.path.join(directory, "metadata.json"), "rb+"))
-
+        name, version = os.path.basename(directory).split("-", 1)
+        meta = json.load(open(os.path.join(directory, "metadata.json"), "r"))
         app_url = path.decode("utf-8").replace(rootdir, url).encode("utf-8")
         template += TEMPLATE % (app_url, "android",
                                 name, i, version, i, handle_dict(meta))
@@ -121,11 +111,10 @@ def ios(url, rootdir):
     i = 0
     url = "itms-services://?action=download-manifest&url=" + url
 
-    for path, name, version in listfiles(rootdir, "manifest.plist"):
+    for path in nativeapps.io.ls(rootdir, r".*manifest.plist$"):
         directory = os.path.dirname(path)
-        meta = json.load(open(os.path.join(directory, "metadata.json"), "rb+"))
-
         name, version = os.path.basename(directory).split("-", 1)
+        meta = json.load(open(os.path.join(directory, "metadata.json"), "r"))
         app_url = path.decode("utf-8").replace(rootdir, url).encode("utf-8")
         template += TEMPLATE % (app_url, "ios",
                                 name, i, version, i, handle_dict(meta))

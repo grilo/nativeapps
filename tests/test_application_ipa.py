@@ -40,8 +40,6 @@ def test_ipa_from_binary():
 </plist>"""
     testfile = os.path.join("tests", "filetest.ipa")
     ipa = nativeapps.application.from_binary(open(testfile, "rb+").read())
-    out = ipa.generate_manifest()
-
-    print ipa.metadata
+    out = ipa.manifest
 
     assert out == expected

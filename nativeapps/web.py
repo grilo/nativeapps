@@ -16,6 +16,7 @@ from flask import request
 
 import nativeapps.application
 import nativeapps.render
+import nativeapps.io
 
 
 
@@ -75,6 +76,45 @@ def serve_application(filename):
         The path must be complete, e.g.: APK/android-1.0/android-1.0.apk
     """
     return flask.send_from_directory("storeapps", filename)
+
+@APP.route("/application", methods=["GET"])
+def applications():
+    """
+        Return a list of all applications and their corresponding metadata
+        in the following format (JSON):
+        applications: [
+            {
+                "url": relative/url/to/application,
+                "name": application_name,
+                "version": application_version,
+                "metadata": <contents of metadata.json>,
+            }
+        ]
+    """
+    storeapps = APP.config["storage"]
+    base_url = request.host_url + "application/"
+
+    response = {"applications": []}
+    for application in nativeapps.io.ls(storeapps, r".*\.(apk|ipa)$"):
+        tokens = application.split(os.path.sep)
+        directory = tokens[-2]
+        name, version = os.path.basename(directory).split("-", 1)
+        meta_path = os.path.join(os.path.dirname(application), "metadata.json")
+
+        link = base_url + "/".join(tokens[-3:])
+        if application.endswith(".ipa"):
+            link = "itms-services://?action=download-manifest&url=" + \
+                    base_url + "/".join(tokens[-3:-1]) + "/" + "manifest.plist"
+
+        response["applications"].append({
+            "url": base_url + "/".join(tokens[-3:]),
+            "name": name,
+            "version": version,
+            "metadata": nativeapps.io.readfile(meta_path),
+            "link": link
+        })
+    return flask.jsonify(response)
+
 
 @APP.route("/application", methods=["PUT", "POST"])
 def upload():
