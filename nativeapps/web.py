@@ -117,6 +117,11 @@ def delete(filename):
     dirname = ".".join(os.path.basename(filename).split(".")[:-1])
     directory = os.path.join(storeapps, extension, dirname)
 
+    try:
+        directory = directory.encode("utf-8")
+    except UnicodeDecodeError:
+        pass
+
     if os.path.isdir(directory):
         shutil.rmtree(directory)
         if os.path.isdir(directory):
