@@ -111,7 +111,8 @@ def applications():
             "name": name,
             "version": version,
             "metadata": nativeapps.io.readfile(meta_path),
-            "link": link
+            "link": link,
+            "type": application.split(".")[-1],
         })
     return flask.jsonify(response)
 
