@@ -1,3 +1,11 @@
+function render_deleteapps(apps) {
+    apps.forEach(function (app, index) {
+        var name = app.name + "-" + app.version + "." + app.type;
+        $("form#deleteApplications select").append(`<option>${name}</option>`);
+    });
+}
+
+
 function render_applications(applications) {
 
     for (var i = 0; i < applications.length; i++) {

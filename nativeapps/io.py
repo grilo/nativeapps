@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import hashlib
-import distutils
+import distutils.spawn
 import tempfile
 import subprocess
 import shlex

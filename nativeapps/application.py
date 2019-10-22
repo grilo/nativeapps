@@ -25,6 +25,8 @@ except ImportError:
 import biplist
 import axmlparserpy.apk # https://github.com/antitree/AxmlParserPY
 
+import nativeapps.io
+
 
 class InvalidApplicationError(Exception):
     """The binary content is invalid for this application type."""
@@ -86,6 +88,8 @@ class Base(object):
                                  self.__class__.__name__,
                                  self.dirname)
         path = os.path.join(directory, self.filename)
+        meta_path = os.path.join(directory, "metadata.json")
+        nativeapps.io.writefile(meta_path, self.metadata)
         return nativeapps.io.writefile(path, self.raw)
 
 
@@ -147,7 +151,7 @@ class IPA(Base):
             "cn": None,
         }
 
-        out = nativeapps.io.decode_cert(binary_data)
+        out = nativeapps.io.cert_decode(binary_data)
         if not out:
             logging.debug("Unable to decode certificate, info will be incomplete.")
             return cert

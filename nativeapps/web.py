@@ -15,7 +15,6 @@ import flask
 from flask import request
 
 import nativeapps.application
-import nativeapps.render
 import nativeapps.io
 
 
@@ -33,16 +32,7 @@ def index():
 
     storeapps = APP.config["storage"]
     html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
-    html = open(html_path, "r").read()
-
-    html = html.replace("{{ android_applications }}",
-                        nativeapps.render.android(
-                            request.host_url + "application", storeapps))
-
-    html = html.replace("{{ ios_applications }}",
-                        nativeapps.render.ios(
-                            request.host_url + "application", storeapps))
-    return html, 200
+    return open(html_path, "r").read(), 200
 
 @APP.route("/application/IPA/<app>/manifest.plist", methods=["GET"])
 def serve_manifest(app):
