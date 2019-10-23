@@ -10,6 +10,7 @@
 import logging
 import os
 import shutil
+import json
 
 import flask
 from flask import request
@@ -86,7 +87,7 @@ def applications():
 
     response = {"applications": []}
     for application in nativeapps.io.ls(storeapps, r".*\.(apk|ipa)$"):
-        tokens = application.split(os.path.sep)
+        tokens = application.decode("utf-8").split(os.path.sep)
         directory = tokens[-2]
         name, version = os.path.basename(directory).split("-", 1)
         meta_path = os.path.join(os.path.dirname(application), "metadata.json")
@@ -132,7 +133,7 @@ def upload():
     except nativeapps.application.InvalidApplicationError as exception:
         return exception, 400
 
-@APP.route("/application/<path:filename>", methods=["DELETE"])
+@APP.route("/application/<filename>", methods=["DELETE"])
 def delete(filename):
     """
         Remove one of the stored applications.
@@ -160,6 +161,72 @@ def delete(filename):
         return "Removed: %s" % (filename), 200
 
     return "File not found: %s" % (filename), 404
+
+
+@APP.route("/application/<filename>/tag/<tag_name>", methods=["PUT"])
+def add_tag(filename, tag_name):
+    """
+        Add a tag to an application.
+
+        A tag is a simple word used to describe an application.
+    """
+    storeapps = APP.config["storage"]
+    filename = filename.encode("utf-8")
+    print filename
+
+    try:
+        application = list(nativeapps.io.ls(storeapps, r".*" + filename + "$"))[0]
+        meta_path = os.path.join(os.path.dirname(application), "metadata.json")
+        metadata = json.loads(nativeapps.io.readfile(meta_path))
+        tags = set(metadata.get("tags", []))
+        tags.add(tag_name)
+        metadata["tags"] = list(tags)
+        nativeapps.io.writefile(meta_path, json.dumps(metadata))
+    except IndexError:
+        return "Unknown application: %s" % (application), 404
+
+    return "added", 200
+
+@APP.route("/application/<filename>/tag", methods=["GET"])
+def list_tags(filename):
+    """
+        Return the list of tags associated with the application.
+    """
+    storeapps = APP.config["storage"]
+    filename = filename.encode("utf-8")
+
+    try:
+        application = list(nativeapps.io.ls(storeapps, r".*" + filename + "$"))[0]
+        meta_path = os.path.join(os.path.dirname(application), "metadata.json")
+        metadata = json.loads(nativeapps.io.readfile(meta_path))
+        tags = metadata.get("tags", [])
+        return flask.jsonify(tags)
+    except IndexError:
+        return "Unknown application: %s" % (application), 404
+
+@APP.route("/application/<filename>/tag/<tag_name>", methods=["DELETE"])
+def delete_tag(filename, tag_name):
+    """
+        Remove a tag from an application.
+
+        A tag is a simple word used to describe an application.
+    """
+    storeapps = APP.config["storage"]
+    filename = filename.encode("utf-8")
+
+    try:
+        application = list(nativeapps.io.ls(storeapps, r".*" + filename + "$"))[0]
+        meta_path = os.path.join(os.path.dirname(application), "metadata.json")
+        metadata = json.loads(nativeapps.io.readfile(meta_path))
+        tags = metadata.get("tags", [])
+        if tag_name in tags:
+            tags.remove(tag_name)
+        metadata["tags"] = tags
+        nativeapps.io.writefile(meta_path, json.dumps(metadata))
+    except IndexError:
+        return "Unknown application: %s" % (application), 404
+
+    return "removed", 200
 
 
 def run(host, port, threaded, debug, storage): # pragma: no cover

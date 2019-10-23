@@ -1,18 +1,21 @@
-function render_deleteapps(apps) {
-    apps.forEach(function (app, index) {
-        var name = app.name + "-" + app.version + "." + app.type;
-        $("form#deleteApplications select").append(`<option>${name}</option>`);
+function load_app() {
+    $.ajax({
+        url: "/application"
+    }).then(function(data) {
+        render_applications(data.applications);
+        render_deleteapps(data.applications);
+        render_apptags(data.applications);
     });
 }
 
-
 function render_applications(applications) {
-
-    for (var i = 0; i < applications.length; i++) {
-        var type = applications[i].type;
-        var dom_obj = render_app(i, applications[i]);
+    $(`div#ipa table tbody`).empty();
+    $(`div#apk table tbody`).empty();
+    applications.forEach(function (app, index) {
+        var type = app.type;
+        var dom_obj = render_app(index, app);
         $(`div#${type} table tbody`).append(dom_obj);
-    }
+    });
 }
 
 function render_app(id, application) {
@@ -20,7 +23,16 @@ function render_app(id, application) {
     let type = application.type;
     let name = application.name;
     let version = application.version;
-    let metadata = render_object(JSON.parse(application.metadata));
+    let metadata = JSON.parse(application.metadata);
+    let metadata_dom = render_object(metadata);
+    let tags = "";
+
+    if (Array.isArray(metadata.tags)) {
+        metadata.tags.forEach(function (tag_name, index) {
+            tags = `${tags} <span class="badge badge-primary">${tag_name}</span>`
+        });
+    }
+
     return `
     <tr>
         <td scope="row">
@@ -28,12 +40,15 @@ function render_app(id, application) {
                 <img style="width: 2em; height: 2em;" src="static/img/${type}.png"/>
             </a>
         </td>
-        <td>${name}</td>
+        <td>
+            ${name}-${version}
+            ${tags}
+        </td>
         <td>
             <button class="btn btn-link"
                     data-toggle="collapse"
                     data-target="#collapseID${id}">
-                ${version}
+                <img style="width: 1.5em; height: 1.5em;" src="static/img/help.png"/>
             </button>
         </td>
     </tr>
@@ -41,7 +56,7 @@ function render_app(id, application) {
         <td colspan="4">
             <div class="collapse" id="collapseID${id}">
                 <div class="card card-body">
-                   ${metadata}
+                   ${metadata_dom}
                 </div>
             </div>
         </td>
@@ -63,21 +78,21 @@ function get_type(object) {
 
 
 function render_array(meta) {
-    var template = ``;
+    var template = `<ul class="list-unstyled">`;
     meta.forEach(function (item, index) {
         if (get_type(item) == "object") {
             template = template + render_object(item);
         } else {
-            template = template + `<p>${item}</p>`;
+            template = template + `<li>${item}</li>`;
         }
     });
-    return template;
+    return template + `</ul>`;
 }
 
 
 function render_object(meta) {
     let table = `
-    <table class="table table-sm table-responsive alert alert-dark">
+    <table class="table small table-sm table-responsive alert alert-dark">
         <thead>
             <tr>
                 <th scope="col">Key</th>
@@ -105,3 +120,28 @@ function render_object(meta) {
 
     return table + "</table>";
 }
+
+
+function render_deleteapps(apps) {
+    $("form#deleteApplications select").empty();
+    apps.forEach(function (app, index) {
+        var name = app.name + "-" + app.version + "." + app.type;
+        $("form#deleteApplications select").append(`<option>${name}</option>`);
+    });
+}
+
+function render_apptags(apps) {
+    $("form select#applicationNameTags").empty();
+    apps.forEach(function (app, index) {
+        var name = app.name + "-" + app.version + "." + app.type;
+        $("form select#applicationNameTags").append(`<option>${name}</option>`);
+    });
+    $("select#applicationTags").tagsinput("removeAll", { preventPost: true });
+    tags = JSON.parse(apps[0].metadata).tags
+    if (tags) {
+        tags.forEach(function (tag_name, index) {
+            $("select#applicationTags").tagsinput("add", tag_name, { preventPost: true });
+        });
+    }
+}
+

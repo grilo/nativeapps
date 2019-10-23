@@ -1,11 +1,6 @@
 $(document).ready(function() {
 
-    $.ajax({
-        url: "/application"
-    }).then(function(data) {
-        render_applications(data.applications);
-        render_deleteapps(data.applications);
-    });
+    load_app();
 
     $("input#uploadfile").on("change", function() {
         var fileName = $(this).val(); //get the file name
@@ -15,19 +10,26 @@ $(document).ready(function() {
         formData.append("file", $(this)[0].files[0]);
         xhr = new XMLHttpRequest();
         xhr.open("POST", "/application")
+        xhr.upload.addEventListener("progress", function(event) {
+            if (event.lengthComputable) {
+                var percentComplete = event.loaded / event.total * 100;
+                $("div#uploadProgress").width(percentComplete.toFixed(0) + "%");
+                $("div#uploadProgress").html(event.loaded + "/" + event.total);
+            }
+        }, false);
+
         xhr.onload = function() {
             if (xhr.status != 201) {
                 alert("Error uploading.");
             } else {
                 alert("Upload successful!");
                 $(this).val("");
-                location.reload();
+                load_app();
             }
-            $("#uploadprogress").width("0%");
+            $("div#uploadProgress").width("0%");
             $("input#uploadfile").val();
         };
         xhr.send(formData);
-        $("#uploadprogress").width("50%");
     });
 
     $("form#deleteApplications button#askDeleteApplication").on("click", function(event) {
@@ -37,16 +39,78 @@ $(document).ready(function() {
 
     $("form#deleteApplications button#confirmDeleteApplication").on("click", function(event) {
         var app = $("form#deleteApplications select").children("option:selected").val();
-        xhr = new XMLHttpRequest();
-        xhr.open("DELETE", "/application/" + app);
-        xhr.onload = function() {
-            if (xhr.status != 200) {
+        $.ajax({
+            url: "/application/" + app,
+            type: "DELETE",
+            success: function(result) {
+                load_app();
+            },
+            error: function(result) {
                 alert("Unable to delete, check params.");
-            } else {
-                location.reload();
-            }
-        };
-        xhr.send();
+            },
+        });
+    });
+
+    $("select#applicationTags").on("beforeItemAdd", function(event) {
+        var app = $("select#applicationNameTags").children("option:selected").val();
+        var tag_name = event.item;
+
+        if (event.options && event.options.preventPost) {
+            return;
+        }
+
+        $.ajax({
+            url: "/application/" + app + "/tag/" + tag_name,
+            type: "PUT",
+            success: function(result) {
+                $.ajax({
+                    url: "/application"
+                }).then(function(data) {
+                    render_applications(data.applications);
+                });
+            },
+            error: function(result) {
+                $("select#applicationTags").tagsinput("remove", tag_name, { preventPost: true });
+            },
+        });
+
+    });
+
+    $("select#applicationTags").on("beforeItemRemove", function(event) {
+        var app = $("select#applicationNameTags").children("option:selected").val();
+        var tag_name = event.item;
+
+        if (event.options && event.options.preventPost) {
+            return;
+        }
+
+        $.ajax({
+            url: "/application/" + app + "/tag/" + tag_name,
+            type: "DELETE",
+            success: function(result) {
+                $.ajax({
+                    url: "/application"
+                }).then(function(data) {
+                    render_applications(data.applications);
+                });
+            },
+            error: function(result) {
+                $("select#applicationTags").tagsinput("add", tag_name, { preventPost: true });
+            },
+        });
+    });
+
+    $("select#applicationNameTags").on("change", function(event) {
+        var app = event.target.value;
+        $.ajax({
+            url: "/application/" + app + "/tag",
+        }).then(function(data) {
+            $("select#applicationTags").tagsinput("removeAll");
+            data.forEach(function (tag_name, index) {
+                $("select#applicationTags").tagsinput("add", tag_name, { preventPost: true });
+            });
+        });
+
     });
 
 });
