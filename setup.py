@@ -18,6 +18,7 @@ setup(
         "Programming Language :: Python :: 2.7",
     ],
     packages=find_packages(),
+    include_package_data=True,
     package_data={
         "nativeapps": ["static/*"],
     },
