@@ -57,7 +57,7 @@ def serve_manifest(app):
     if not os.path.isfile(manifest):
         return "File not found", 404
     logging.debug("Serving manifest with application url: %s", app_url)
-    return open(manifest).read().replace("{{ APPLICATION_URL }}", app_url)
+    return open(manifest).read().replace("{{ APPLICATION_URL }}", app_url.encode("utf-8"))
 
 @APP.route("/application/<path:filename>", methods=["GET"])
 def serve_application(filename):
