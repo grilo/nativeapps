@@ -19,8 +19,16 @@ import nativeapps.application
 import nativeapps.io
 
 
+class ProxiedRequest(flask.Request):
+    base_url = None
+    def __init__(self, environ, populate_request=True, shallow=False, host_url=None):
+        super(flask.Request, self).__init__(environ, populate_request, shallow)
+        if ProxiedRequest.base_url:
+            self.host_url = ProxiedRequest.base_url
 
 APP = flask.Flask(__name__, static_url_path='/static')
+APP.request_class = ProxiedRequest
+
 
 @APP.route("/", methods=['GET'])
 def index():
@@ -229,7 +237,7 @@ def delete_tag(filename, tag_name):
     return "removed", 200
 
 
-def run(host, port, threaded, debug, storage): # pragma: no cover
+def run(host, port, threaded, debug, storage, base_url=None): # pragma: no cover
     """
         Launch the werkzeug application.
     """
@@ -244,5 +252,7 @@ def run(host, port, threaded, debug, storage): # pragma: no cover
     else:
         logging.getLogger().setLevel(logging.INFO)
 
+    if url:
+        ProxiedRequest.base_url = url
     APP.config["storage"] = storage
     APP.run(host, port, threaded)
