@@ -252,7 +252,9 @@ def run(host, port, threaded, debug, storage, base_url=None): # pragma: no cover
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    if url:
-        ProxiedRequest.base_url = url
+    if base_url:
+        if not base_url.endswith("/"):
+            base_url += "/"
+        ProxiedRequest.base_url = base_url
     APP.config["storage"] = storage
     APP.run(host, port, threaded)
