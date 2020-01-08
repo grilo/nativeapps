@@ -22,6 +22,8 @@ def cli():
     parser.add_argument('-s', '--storage',
                         help="Filesystem location where apps will be stored.",
                         default=os.path.join(os.path.dirname(__file__), "storeapps"))
+    parser.add_argument('-u', '--url',
+                        help="Alternative url for manifest.plist (don't induce it).")
     parser.add_argument('-v', '--verbose',
                         help="Increase output verbosity.",
                         action='store_true')
@@ -31,7 +33,8 @@ def cli():
             port=int(args.port),
             threaded=True,
             debug=args.verbose,
-            storage=args.storage)
+            storage=args.storage,
+            base_url=args.url)
 
 if __name__ == "__main__":
     cli()
