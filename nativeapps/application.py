@@ -203,7 +203,7 @@ class IPA(Base):
         """
             AKA bundle-identifier
         """
-        return self.infoplist["CFBundleName"].encode("utf-8")
+        return self.infoplist["CFBundleIdentifier"].encode("utf-8")
 
     @property
     def version(self):
