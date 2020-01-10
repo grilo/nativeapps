@@ -65,7 +65,8 @@ def serve_manifest(app):
     if not os.path.isfile(manifest):
         return "File not found", 404
     logging.debug("Serving manifest with application url: %s", app_url)
-    return open(manifest).read().replace("{{ APPLICATION_URL }}", app_url.encode("utf-8"))
+    return flask.Response(open(manifest).read().replace("{{ APPLICATION_URL }}", app_url.encode("utf-8")),
+                          mimetype='text/xml')
 
 @APP.route("/application/<path:filename>", methods=["GET"])
 def serve_application(filename):
@@ -74,7 +75,8 @@ def serve_application(filename):
 
         The path must be complete, e.g.: APK/android-1.0/android-1.0.apk
     """
-    return flask.send_from_directory("storeapps", filename)
+    storeapps = APP.config["storage"]
+    return flask.send_from_directory(storeapps, filename, mimetype="application/octet-stream")
 
 @APP.route("/application", methods=["GET"])
 def applications():
