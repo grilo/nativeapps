@@ -14,7 +14,7 @@ function render_applications(applications) {
     applications.forEach(function (app, index) {
         var type = app.type;
         var dom_obj = render_app(index, app);
-        $(`div#${type} table tbody`).append(dom_obj);
+        $(`div#${type} > table > tbody`).append(dom_obj);
     });
 }
 
