@@ -1,4 +1,4 @@
-# Distributer Android and iOS internally
+# Distribute Android and iOS apps internally
 
 ## What
 
